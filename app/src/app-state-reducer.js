@@ -14,6 +14,8 @@ function appStateReducer(state) {
 
   const {
     holders,
+    balances,
+    delegations,
     maxAccountTokens,
     tokenDecimals,
     tokenSupply,
@@ -42,10 +44,11 @@ function appStateReducer(state) {
 
     holders: holders
       ? holders
-          .map(holder => ({ ...holder, balance: new BN(holder.balance) }))
-          .sort((a, b) => b.balance.cmp(a.balance))
+          .map(holder => ({ ...holder, shares: new BN(holder.shares) }))
+          .sort((a, b) => b.shares.cmp(a.shares))
       : [],
-
+    balances: balances,
+    delegations: delegations,
     vestings: vestings
       ? Object.entries(vestings).reduce(
           (vestings, [address, vestingsForAddress]) => {

@@ -1,7 +1,8 @@
 import Aragon, { events } from '@aragon/api'
 import tokenSettings, { hasLoadedTokenSettings } from './token-settings'
 import { addressesEqual } from './web3-utils'
-import tokenAbi from './abi/minimeToken.json'
+import BN from 'bn.js'
+import tokenAbi from './abi/DelegableMiniMeToken.json'
 
 const app = new Aragon()
 
@@ -90,6 +91,10 @@ async function initialize(tokenAddress) {
           return nextState
         case 'Transfer':
           return transfer(token, nextState, returnValues)
+        case 'Delegate':
+          return delegate(token, nextState, returnValues)
+        case 'UnDelegate':
+          return undelegate(token, nextState, returnValues)
         default:
           return nextState
       }
@@ -152,12 +157,21 @@ function initState({ token, tokenAddress }) {
  ***********************/
 
 async function claimedTokens(token, state, { _token, _controller }) {
-  const changes = await loadNewBalances(token, _token, _controller)
-  return updateTokenState(state, changes)
+  const newBalances = await loadNewBalances(token, _token, _controller)
+  const newShares = await loadNewShares(token, _token, _controller)
+  const newDelegatedBalance = await loadDelegatedBalances(
+    token,
+    _token,
+    _controller
+  )
+  return updateTokenState(state, newBalances, newShares, newDelegatedBalance)
 }
 
 async function transfer(token, state, { _from, _to }) {
-  const changes = await loadNewBalances(token, _from, _to)
+  const newBalances = await loadNewBalances(token, _from, _to)
+  const newShares = await loadNewShares(token, _from, _to)
+  const newDelegatedBalance = await loadDelegatedBalances(token, _from, _to)
+
   // The transfer may have increased the token's total supply, so let's refresh it
   const tokenSupply = await token.totalSupply().toPromise()
   return updateTokenState(
@@ -165,8 +179,32 @@ async function transfer(token, state, { _from, _to }) {
       ...state,
       tokenSupply,
     },
-    changes
+    newBalances,
+    newShares,
+    newDelegatedBalance
   )
+}
+
+async function delegate(token, state, { _owner, _delegate }) {
+  const newBalances = await loadNewBalances(token, _owner, _delegate)
+  const newShares = await loadNewShares(token, _owner, _delegate)
+  const newDelegatedBalance = await loadDelegatedBalances(
+    token,
+    _owner,
+    _delegate
+  )
+  return updateTokenState(state, newBalances, newShares, newDelegatedBalance)
+}
+
+async function undelegate(token, state, { _owner, _delegate }) {
+  const newBalances = await loadNewBalances(token, _owner, _delegate)
+  const newShares = await loadNewShares(token, _owner, _delegate)
+  const newDelegatedBalance = await loadDelegatedBalances(
+    token,
+    _owner,
+    _delegate
+  )
+  return updateTokenState(state, newBalances, newShares, newDelegatedBalance)
 }
 
 async function newVesting(state, { receiver, vestingId }) {
@@ -183,14 +221,13 @@ async function newVesting(state, { receiver, vestingId }) {
  *                     *
  ***********************/
 
-function updateTokenState(state, changes) {
-  const { holders = [] } = state
+function updateTokenState(state, newBalances, newShares, newDelegatedBalances) {
+  const { holders = [], balances = {}, delegations = {} } = state
   return {
     ...state,
-    holders: changes
-      .reduce(updateHolders, holders)
-      // Filter out any addresses that now have no balance
-      .filter(({ balance }) => balance > 0),
+    holders: newShares.reduce(updateHolders, holders),
+    balances: updateBalances(balances, newBalances),
+    delegations: updateDelegations(delegations, newDelegatedBalances),
   }
 }
 
@@ -207,6 +244,20 @@ function updateHolders(holders, changed) {
     nextHolders[holderIndex] = changed
     return nextHolders
   }
+}
+
+function updateBalances(balances, newBalances) {
+  newBalances.map((address, newBalance) => {
+    balances[address] = new BN(newBalance)
+  })
+  return balances
+}
+
+function updateDelegations(delegations, newDelegations) {
+  newDelegations.map((address, newDelegation) => {
+    delegations[address] = new BN(newDelegation)
+  })
+  return delegations
 }
 
 function updateVestingState(state, receiver, newVesting) {
@@ -239,13 +290,51 @@ function updateVestingsForAddress(vestingsForAddress, newVesting) {
   return nextVestingsForAddress
 }
 
+function loadNewShares(token, ...addresses) {
+  return Promise.all(
+    addresses.map(marshallAddress).map(address =>
+      token
+        .shares(address)
+        .toPromise()
+        .then(shares => ({ address, shares }))
+    )
+  ).catch(err => {
+    console.error(
+      `Failed to load new shares for ${addresses.join(', ')} due to:`,
+      err
+    )
+    // Return an empty object to avoid changing any state
+    // TODO: ideally, this would actually cause the UI to show "unknown" for the address
+    return {}
+  })
+}
+
 function loadNewBalances(token, ...addresses) {
   return Promise.all(
     addresses.map(marshallAddress).map(address =>
       token
-        .balanceOf(address)
+        .delegableBalance(address)
         .toPromise()
-        .then(balance => ({ address, balance }))
+        .then(delegableBalance => ({ address, delegableBalance }))
+    )
+  ).catch(err => {
+    console.error(
+      `Failed to load new balances for ${addresses.join(', ')} due to:`,
+      err
+    )
+    // Return an empty object to avoid changing any state
+    // TODO: ideally, this would actually cause the UI to show "unknown" for the address
+    return {}
+  })
+}
+
+function loadDelegatedBalances(token, ...addresses) {
+  return Promise.all(
+    addresses.map(marshallAddress).map(address =>
+      token
+        .delegatedTo(address)
+        .toPromise()
+        .then(delegatedBalance => ({ address, delegatedBalance }))
     )
   ).catch(err => {
     console.error(

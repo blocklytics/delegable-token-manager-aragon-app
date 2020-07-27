@@ -26,6 +26,8 @@ class App extends React.PureComponent {
     appStateReady: false,
     isSyncing: true,
     holders: [],
+    balances: {},
+    delegations: {},
     vestings: [],
     groupMode: false,
   }
@@ -33,12 +35,30 @@ class App extends React.PureComponent {
     assignTokensConfig: initialAssignTokensConfig,
     sidepanelOpened: false,
   }
-  getHolderBalance = address => {
+  getHolderShares = address => {
     const { holders } = this.props
     const holder = holders.find(holder =>
       addressesEqual(holder.address, address)
     )
-    return holder ? holder.balance : new BN(0)
+    return holder ? holder.shares : new BN(0)
+  }
+  getHolderBalance = address => {
+    const { holders, balances } = this.props
+    const holder = holders.find(holder =>
+      addressesEqual(holder.address, address)
+    )
+    return holder && balances[holder.address]
+      ? balances[holder.address]
+      : new BN(0)
+  }
+  getHolderDelegations = address => {
+    const { holders, delegations } = this.props
+    const holder = holders.find(holder =>
+      addressesEqual(holder.address, address)
+    )
+    return holder && delegations[holder.address]
+      ? delegations[holder.address]
+      : new BN(0)
   }
   handleUpdateTokens = ({ amount, holder, mode }) => {
     const { api } = this.props
@@ -91,6 +111,8 @@ class App extends React.PureComponent {
       appStateReady,
       groupMode,
       holders,
+      balances,
+      delegations,
       isSyncing,
       maxAccountTokens,
       numData,
@@ -133,6 +155,8 @@ class App extends React.PureComponent {
             ) : (
               <Holders
                 holders={holders}
+                balances={balances}
+                delegations={delegations}
                 vestings={vestings}
                 groupMode={groupMode}
                 maxAccountTokens={maxAccountTokens}
@@ -155,6 +179,7 @@ class App extends React.PureComponent {
         {appStateReady && (
           <UpdateTokenPanel
             getHolderBalance={this.getHolderBalance}
+            getHolderShares={this.getHolderShares}
             holderAddress={assignTokensConfig.holderAddress}
             maxAccountTokens={maxAccountTokens}
             mode={assignTokensConfig.mode}

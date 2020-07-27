@@ -22,11 +22,12 @@ import InfoBoxes from '../components/InfoBoxes'
 import LocalIdentityBadge from '../components/LocalIdentityBadge/LocalIdentityBadge'
 import { useIdentity } from '../components/IdentityManager/IdentityManager'
 import You from '../components/You'
-import { useTotalVestedTokensInfo } from '../app-logic'
 
 function Holders({
   groupMode,
   holders,
+  balances,
+  delegations,
   maxAccountTokens,
   onAssignTokens,
   onRemoveTokens,
@@ -47,23 +48,31 @@ function Holders({
 
   const mappedEntries = useMemo(
     () =>
-      holders.map(({ address, balance }) => {
+      holders.map(({ address, shares }) => {
+        const balance =
+          balances && balances[address] ? balances[address] : new BN(0)
+        const delegated =
+          delegations && delegations[address] ? delegations[address] : new BN(0)
         if (vestings[address]) {
-          return [address, balance, vestings[address]]
+          return [address, shares, delegated, balance, vestings[address]]
         }
 
-        return [address, balance, []]
+        return [address, shares, delegated, balance, []]
       }),
-    [holders, vestings]
+    [holders, balances, delegations, vestings]
   )
 
   return (
     <Split
       primary={
         <DataView
-          fields={groupMode ? ['Owner'] : ['Holder', 'Balance']}
+          fields={
+            groupMode
+              ? ['Owner']
+              : ['Holder', 'Shares', 'Delegated Shares', 'Delegable Balance']
+          }
           entries={mappedEntries}
-          renderEntry={([address, balance, vestings]) => {
+          renderEntry={([address, shares, delegated, balance]) => {
             const isCurrentUser = addressesEqual(address, connectedAccount)
 
             const values = [
@@ -87,11 +96,16 @@ function Holders({
 
             if (!groupMode) {
               values.push(
+                <TokenAmount balance={shares} tokenDecimals={tokenDecimals} />
+              )
+              values.push(
                 <TokenAmount
-                  balance={balance}
+                  balance={delegated}
                   tokenDecimals={tokenDecimals}
-                  vestings={vestings}
                 />
+              )
+              values.push(
+                <TokenAmount balance={balance} tokenDecimals={tokenDecimals} />
               )
             }
 
@@ -210,10 +224,7 @@ function EntryActions({
   )
 }
 
-function TokenAmount({ balance, tokenDecimals, vestings }) {
-  const theme = useTheme()
-  const { totalLocked } = useTotalVestedTokensInfo(vestings)
-
+function TokenAmount({ balance, tokenDecimals }) {
   return (
     <div
       css={`
@@ -222,17 +233,6 @@ function TokenAmount({ balance, tokenDecimals, vestings }) {
       `}
     >
       {formatTokenAmount(balance, tokenDecimals)}
-      {!totalLocked.isZero() && (
-        <div
-          css={`
-            padding-left: ${1 * GU}px;
-            ${textStyle('label1')};
-            color: ${theme.surfaceContentSecondary};
-          `}
-        >
-          ({formatTokenAmount(totalLocked, tokenDecimals)} locked)
-        </div>
-      )}
     </div>
   )
 }

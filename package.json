@@ -21,9 +21,9 @@
     "publish:major": "buidler publish major --verify",
     "publish:minor": "buidler publish minor --verify",
     "publish:patch": "buidler publish patch --verify",
-    "publish-rinkeby:major": "buidler publish major --network rinkeby --manager-address 0xa52422BB8c29E4d55243d310fB6BAe793162452e --verify",
-    "publish-rinkeby:minor": "buidler publish minor --network rinkeby --manager-address 0xa52422BB8c29E4d55243d310fB6BAe793162452e --verify",
-    "publish-rinkeby:patch": "buidler publish patch --network rinkeby --manager-address 0xa52422BB8c29E4d55243d310fB6BAe793162452e --verify",
+    "publish:rinkeby:major": "buidler publish major --network rinkeby --manager-address 0xa52422BB8c29E4d55243d310fB6BAe793162452e --verify",
+    "publish:rinkeby:minor": "buidler publish minor --network rinkeby --manager-address 0xa52422BB8c29E4d55243d310fB6BAe793162452e --verify",
+    "publish:rinkeby:patch": "buidler publish patch --network rinkeby --manager-address 0xa52422BB8c29E4d55243d310fB6BAe793162452e --verify",
     "install:frontend": "cd app && yarn install"
   },
   "dependencies": {

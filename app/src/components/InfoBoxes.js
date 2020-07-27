@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import BN from 'bn.js'
 import { useConnectedAccount, useNetwork } from '@aragon/api-react'
 import {
   Box,
@@ -18,7 +19,7 @@ const DISTRIBUTION_ITEMS_MAX = 7
 
 function displayedStakes(accounts, total) {
   return stakesPercentages(
-    accounts.map(({ balance }) => balance),
+    accounts.map(({ shares }) => shares),
     {
       total,
       maxIncluded: DISTRIBUTION_ITEMS_MAX,
@@ -51,7 +52,7 @@ function InfoBoxes({
   tokenSupply,
   tokenSymbol,
   tokenTransfersEnabled,
-  tokenDelegationEnabled
+  tokenDelegationEnabled,
 }) {
   const theme = useTheme()
   const connectedAccount = useConnectedAccount()
